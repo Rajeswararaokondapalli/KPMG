@@ -1,0 +1,113 @@
+# variable-group which contains Client ID, Client Secret, Sid, Tenant ID
+# az-sa.sh check whether storage account & Resource Group already exist or not if not we should create
+# az-keyvault.sh check whether Key Vault already exist or not if not we should create
+# az-acr.sh check whether ACR already exist or not if not we should create
+
+parameters:
+- name: env_name
+  displayName: Name of the environment
+  default: dev
+  values:
+  - dev
+  - test
+  - sit
+  
+trigger:
+  branches:
+    include:
+    - develop
+
+
+pool:
+  vmImage: 'ubuntu-20.04'
+
+variables:
+  - group: variable-group 
+
+jobs:
+  - job: detailsOfjob
+    displayName: Developer Review Stage   
+    steps:
+    - script: |
+      displayName: Environment Details for Review
+    - checkout: self
+
+    - task: AzureCLI@2
+      displayName: Provisioning Storage Account 
+      inputs:
+        azureSubscription: 'ServiceConnection'
+        scriptType: bash
+        scriptLocation: scriptPath
+        scriptPath: $(Build.SourcesDirectory)/az-sa.sh
+        #arguments: ${{parameters.env_name}}
+ 
+    - task: AzureCLI@2
+      displayName: Provisioning KeyVault
+      inputs:
+        azureSubscription: 'ServiceConnection'
+        scriptType: 'bash'
+        scriptLocation: 'scriptPath'
+        scriptPath: '$(Build.SourcesDirectory)/az-keyvault.sh'
+        arguments: ${{parameters.env_name}}
+
+    - task: AzureCLI@2
+      displayName: Provisioning ACR
+      inputs:
+        azureSubscription: 'ServiceConnection'
+        scriptType: 'bash'
+        scriptLocation: 'scriptPath'
+        scriptPath: '$(Build.SourcesDirectory)/az-acr.sh'
+        #arguments: ${{parameters.env_name}}
+
+    - script: |
+        echo '##vso[task.setvariable variable=ARM_CLIENT_ID]$(clientId)'
+        echo '##vso[task.setvariable variable=ARM_CLIENT_SECRET]$(clientSecret)'
+        echo '##vso[task.setvariable variable=ARM_SUBSCRIPTION_ID]$(sid)'
+        echo '##vso[task.setvariable variable=ARM_TENANT_ID]$(tenantId)'
+        echo '##vso[task.setvariable variable=AZURE_STORAGE_KEY]$(ENV_STORAGE_KEY)'
+      displayName: Setting environment variables 
+
+
+    - bash: |
+        cd $(Build.SourcesDirectory)/$(Build.Repository.Name)/environments/${{parameters.env_name}}
+        terraform init -backend-config="${{parameters.env_name}}-backend.tfvars"
+      displayName: Terraform Init
+
+    - bash: |
+        cd $(Build.SourcesDirectory)/$(Build.Repository.Name)/environments/${{parameters.env_name}}
+        terraform plan -var-file="${{parameters.env_name}}-variables.tfvars"
+      displayName: Terraform Plan
+
+
+  - job: waitForValidation
+    displayName: Approve or Deny (You are deploying to ${{ parameters.env_name }} )
+    dependsOn: detailsOfjob
+    pool: server    
+    timeoutInMinutes: 4320 # job times out in 3 days
+    steps:   
+    - task: ManualValidation@0
+      timeoutInMinutes: 1440 # task times out in 1 day
+      inputs:
+        notifyUsers: |
+          user1@domain.com, user2@domain.com
+        instructions: 'Please validate the build configuration from Review Stage above : do you want to continue?'
+        onTimeout: 'reject'
+
+  - job: Apply
+    displayName: Terraform Apply to ${{ parameters.env_name }} Environment
+    dependsOn: waitForValidation     
+    steps:
+    - script: |
+        echo '##vso[task.setvariable variable=ARM_CLIENT_ID]$(clientId)'
+        echo '##vso[task.setvariable variable=ARM_CLIENT_SECRET]$(clientSecret)'
+        echo '##vso[task.setvariable variable=ARM_SUBSCRIPTION_ID]$(sid)'
+        echo '##vso[task.setvariable variable=ARM_TENANT_ID]$(tenantId)'
+        echo '##vso[task.setvariable variable=AZURE_STORAGE_KEY]$(ENV_STORAGE_KEY)'
+      displayName: set environment variable for subsequent steps
+      
+    - bash: |
+        cd $(Build.SourcesDirectory)/$(Build.Repository.Name)
+        cd environments/${{parameters.env_name}}
+        terraform init -backend-config="${{parameters.env_name}}-backend.tfvars"
+        terraform apply -var-file="${{parameters.env_name}}-variables.tfvars" -input=false -auto-approve
+      displayName: Terraform Apply to ${{ parameters.env_name }} Environment
