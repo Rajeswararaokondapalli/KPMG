@@ -1,0 +1,26 @@
+http://169.254.169.254/latest/
+This is the main URI for the API, where we query dynamic/, meta-data/, and user-data/ from the above
+
+we can use Curl for Bash and Invoke-RestMethod for PowerSHell
+
+
+IMDSv2 is the best practise to get the meta data, As IMDSv2 is a session-oriented, we need to generate a Token and make use of it,
+This Token is valid for 6Hrs
+
+As its a session oriented, to Initilise it we need to go with PUT Request this returns the Token, so we make use the same for GET
+we made this for 1 hr, by default the output is the Json formate.
+
+we are Generating the TOken and placing it in Gentoken
+
+[string]$Gentoken = Invoke-RestMethod -Headers @{"X-aws-ec2-metadata-token-ttl-seconds" = "3600"} -Method PUT -Uri http://169.254.169.254/latest/api/Gentoken
+
+Invoke-RestMethod -Headers @{"X-aws-ec2-metadata-token" = $Gentoken} -Method GET -Uri http://169.254.169.254/latest/meta-data/
+eg:
+Invoke-RestMethod -Headers @{"X-aws-ec2-metadata-token" = $Gentoken} `
+-Method GET -uri http://169.254.169.254/latest/meta-data/ami-id
+
+Invoke-RestMethod -Headers @{"X-aws-ec2-metadata-token" = $Gentoken} `
+-Method GET -uri http://169.254.169.254/latest/meta-data/hostname
+
+Invoke-RestMethod -Headers @{"X-aws-ec2-metadata-token" = $Gentoken} `
+-Method GET -uri http://169.254.169.254/latest/meta-data/security-groups
