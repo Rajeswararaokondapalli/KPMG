@@ -1,0 +1,67 @@
+I am considering the below tools for this Challenge
+IAC as Terraform and the Cloud Provider as Azure
+Azure DevOps Pipeline to Automate the Terraform Configuration files and create the Storage Account, Key Vault and ACR
+as we supposed to maintain the Statefile with in the Storage Account-Container
+
+so here the Three-Tier architecture is going to provision on the Azure Cloud via Terraform and Azure Pipeline
+we will be having Presentation Layer, Application Layer and Database Layers in distinct subnets with in the Azure
+
+Best Practice to be consider
+1) implement with two availability zones
+2) need to have separate subnets for individual layers(Web, Application, Database)
+3) Allow Inbound Access from web subnet to Apps Subnet and App Subnet to DB SUbnet
+4) No Direct Inbound access allow from web subnet to DB subnet and DB subnet to Web Subnet
+5) Inbound ports 80 & 443 for the WEB Subnet should be open
+
+
+i am going to implement via Terraform Modules, 
+with in a module we can have configuration files related to specific resource
+and we can make use of the same modules for other environments by just pointing the Variables file via pipeline parameter selection.
+
+in our case, we are going to have mainly two folders
+one folder called Environment and another is Modules 
+
+Environment folder contains:
+
+sub folders dev, test, sit
+each env folder we will be having the 5 files
+1) .Terraform folder having the "terraform-provider-azurerm_v2.57.0_x5.exe"  
+2) main.tf                   // The primary entrypoint for terraform resources.
+3) vars.tf                   // It contain the declarations for variables.
+4) output.tf                 // It contain the declarations for outputs.
+5) variables.tfvars          // The file to pass the terraform variables values.
+
+for each main.tf of dev, test, sit will execute below modules,
+
+Modules contain below 6 sub modules:
+ 
+Network Module: which contains resources
+one "azurerm_virtual_network" and three "azurerm_subnet" for web, Application and Database
+
+Modules Folder Containes
+Network Module: which contains resources
+one "azurerm_virtual_network" and three "azurerm_subnet" for web, Application and Database
+
+webapps modules: contains below modules, one for Web Server and other for Application Server
+azurerm_availability_set - 2
+azurerm_network_interface -2
+azurerm_virtual_machine -2
+
+Database Module: containe below modules:
+azurerm_sql_server
+azurerm_sql_database
+
+Securitygroup module:
+azurerm_network_security_group
+azurerm_subnet_network_security_group_association
+azurerm_network_security_group
+azurerm_subnet_network_security_group_association
+azurerm_network_security_group
+azurerm_subnet_network_security_group_association
+
+Resourcegroup module:
+azurerm_resource_group
+
+
+
+
