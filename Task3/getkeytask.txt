@@ -1,0 +1,20 @@
+I took this as an example for this Challenge:
+to list the desired Comments 
+
+const props = {
+  user: {
+    posts: [
+      { title: 'Ram', comments: [ 'Awesome', 'Excellent' ] },
+      { title: 'Rajesh', comments: [ 'Good' ] },
+      { title: 'Rakesh', comments: [] },
+    ]
+  }
+}
+
+by using Lenses function in the Java, it is achivable, here we are retriving the Ram comments
+
+// using lenses
+const findUserComments =
+  R.lensPath(['user', 'posts', 0, 'comments'])
+console.log(R.view(findUserComments, props))
+// [ 'Awesome', 'Excellent' ]
